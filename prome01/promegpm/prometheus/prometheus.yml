@@ -1,0 +1,59 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    replica: prome01-promegpm
+
+scrape_configs:
+  - job_name: "prometheus"
+    static_configs:
+      - targets:
+          - 192.168.122.201:9090
+          - 192.168.122.202:9090
+          - 192.168.122.203:9090
+          - 192.168.122.201:9190
+          - 192.168.122.202:9190
+          - 192.168.122.203:9190
+
+  - job_name: "grafana"
+    static_configs:
+      - targets:
+          - 192.168.122.204:3000
+
+  - job_name: "node_exporter"
+    file_sd_configs:
+      - files:
+          - target/*.yml
+
+  - job_name: "thanos_metrics"
+    static_configs:
+      - targets:
+          - 192.168.122.201:19190
+          - 192.168.122.202:19190
+          - 192.168.122.203:19190
+          - 192.168.122.201:19290
+          - 192.168.122.202:19290
+          - 192.168.122.203:19290
+        labels:
+          job: thanos_sidecar
+          metrics_path: /metrics
+      - targets:
+          - 192.168.122.201:19191
+          - 192.168.122.202:19191
+          - 192.168.122.203:19191
+        labels:
+          job: thanos_query
+          metrics_path: /metrics
+      - targets:
+          - 192.168.122.201:19192
+          - 192.168.122.202:19192
+          - 192.168.122.203:19192
+          - 192.168.122.204:19192
+        labels:
+          job: thanos_storegw
+          metrics_path: /metrics
+      - targets:
+          - 192.168.122.204:19193
+        labels:
+          job: thanos_compact
+          metrics_path: /metrics

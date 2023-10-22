@@ -1,0 +1,113 @@
+# Save the output of this file and use kubectl create -f
+# to import it into Kubernetes.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: thanosgpm
+  name: thanosgpm
+spec:
+  containers:
+    - name: thanos-query
+      image: docker.io/thanosio/thanos:v0.32.2
+      ports:
+        - containerPort: 19191
+          hostPort: 19191
+        - containerPort: 10901
+          hostPort: 10901
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      args:
+        - "query"
+        - "--http-address=0.0.0.0:19191"
+        - "--grpc-address=0.0.0.0:10901"
+        - "--query.replica-label=replica"
+        - "--store=192.168.122.201:10901"
+        - "--store=192.168.122.202:10901"
+        - "--store=192.168.122.203:10901"
+    - name: thanos-rule
+      image: docker.io/thanosio/thanos:v0.32.2
+      ports:
+        - containerPort: 19191
+          hostPort: 19196
+        - containerPort: 9096
+          hostPort: 9096
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      volumeMounts:
+        - mountPath: /thanos/bucket_config.yml
+          name: thanos_bucket_config
+          readOnly: true
+        - mountPath: /thanos/rule
+          name: thanos_rule
+      args:
+        - "rule"
+        - "--data-dir=/thanos/rule"
+        - "--http-address=0.0.0.0:19196"
+        - "--grpc-address=0.0.0.0:10906"
+        - "--alert.query-url=http://0.0.0.0:9096"
+        - "--alert.label-drop=replica"
+        - "--query=thanosgpm-thanos-query:19191"
+        - "--objstore.config-file=/thanos/bucket_config.yml"
+    - name: alertmanager
+      image: docker.io/prom/alertmanager:latest
+      ports:
+        - containerPort: 9093
+          hostPort: 9093
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      volumeMounts:
+        - mountPath: /prometheus/alertmanager/alertmanager.yml
+          name: alertmanager_config
+          readOnly: true
+        - mountPath: /prometheus/alertmanager/data
+          name: alertmanager_data
+      args:
+        - "--config.file=/prometheus/alertmanager/alertmanager.yml"
+        - "--log.level=debug"
+  restartPolicy: OnFailure
+  volumes:
+    - name: thanos_store
+      hostPath:
+        path: /deployment/thanosgpm/thanos/store
+        type: Directory
+    - name: thanos_compact
+      hostPath:
+        path: /deployment/thanosgpm/thanos/compact
+        type: Directory
+    - name: thanos_bucket
+      hostPath:
+        path: /deployment/thanosgpm/thanos/bucket
+        type: Directory
+    - name: thanos_bucket_config
+      hostPath:
+        path: /deployment/thanosgpm/thanos/bucket_config.yml
+        type: File
+    - name: thanos_rule
+      hostPath:
+        path: /deployment/thanosgpm/thanos/rule
+        type: Directory
+    - name: alertmanager_config
+      hostPath:
+        path: /deployment/promegpm/prometheus/alertmanager/alertmanager.yml
+        type: File
+    - name: alertmanager_data
+      hostPath:
+        path: /deployment/promegpm/prometheus/alertmanager/data
+        type: Directory
+status: {}

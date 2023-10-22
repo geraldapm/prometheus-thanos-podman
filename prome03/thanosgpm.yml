@@ -1,0 +1,106 @@
+# Save the output of this file and use kubectl create -f
+# to import it into Kubernetes.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: thanosgpm
+  name: thanosgpm
+spec:
+  containers:
+    - name: thanos-storegw
+      image: docker.io/thanosio/thanos:v0.32.2
+      ports:
+        - containerPort: 19192
+          hostPort: 19192
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      volumeMounts:
+        - mountPath: /thanos/bucket_config.yml
+          name: thanos_bucket_config
+          readOnly: true
+        - mountPath: /thanos/store
+          name: thanos_store
+      args:
+        - "store"
+        - "--log.level=debug"
+        - "--index-cache-size=500MB"
+        - "--chunk-pool-size=500MB"
+        - "--data-dir=/thanos/store"
+        - "--objstore.config-file=/thanos/bucket_config.yml"
+        - "--http-address=0.0.0.0:19192"
+        - "--grpc-address=0.0.0.0:10902"
+    - name: thanos-query
+      image: docker.io/thanosio/thanos:v0.32.2
+      ports:
+        - containerPort: 19191
+          hostPort: 19191
+        - containerPort: 10901
+          hostPort: 10901
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      args:
+        - "query"
+        - "--http-address=0.0.0.0:19191"
+        - "--grpc-address=0.0.0.0:10901"
+        - "--query.replica-label=replica"
+        - "--query.replica-label=cluster"
+        - "--store=192.168.122.203:10900"
+        - "--store=192.168.122.203:10910"
+        - "--store=thanosgpm-thanos-storegw:10902"
+    - name: thanos-compactor
+      image: docker.io/thanosio/thanos:v0.32.2
+      ports:
+        - containerPort: 19193
+          hostPort: 19193
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      volumeMounts:
+        - mountPath: /thanos/bucket_config.yml
+          name: thanos_bucket_config
+          readOnly: true
+        - mountPath: /thanos/compact
+          name: thanos_compact
+      args:
+        - "compact"
+        - "--data-dir=/thanos/compact"
+        - "--objstore.config-file=/thanos/bucket_config.yml"
+        - "--http-address=0.0.0.0:19193"
+        - "--wait"
+        - "--retention.resolution-raw=14d"
+        - "--retention.resolution-5m=30d"
+        - "--retention.resolution-1h=90d"
+  restartPolicy: OnFailure
+  volumes:
+    - name: thanos_store
+      hostPath:
+        path: /deployment/thanosgpm/thanos/store
+        type: Directory
+    - name: thanos_compact
+      hostPath:
+        path: /deployment/thanosgpm/thanos/compact
+        type: Directory
+    - name: thanos_bucket
+      hostPath:
+        path: /deployment/thanosgpm/thanos/bucket
+        type: Directory
+    - name: thanos_bucket_config
+      hostPath:
+        path: /deployment/thanosgpm/thanos/bucket_config.yml
+        type: File
+status: {}

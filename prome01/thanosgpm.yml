@@ -1,0 +1,50 @@
+# Save the output of this file and use kubectl create -f
+# to import it into Kubernetes.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: thanosgpm
+  name: thanosgpm
+spec:
+  containers:
+    - name: thanos-query
+      image: docker.io/thanosio/thanos:v0.32.2
+      ports:
+        - containerPort: 19191
+          hostPort: 19191
+        - containerPort: 10901
+          hostPort: 10901
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      args:
+        - "query"
+        - "--http-address=0.0.0.0:19191"
+        - "--grpc-address=0.0.0.0:10901"
+        - "--query.replica-label=replica"
+        - "--store=192.168.122.201:10900"
+        - "--store=192.168.122.201:10910"
+  restartPolicy: OnFailure
+  volumes:
+    - name: thanos_store
+      hostPath:
+        path: /deployment/thanosgpm/thanos/store
+        type: Directory
+    - name: thanos_compact
+      hostPath:
+        path: /deployment/thanosgpm/thanos/compact
+        type: Directory
+    - name: thanos_bucket
+      hostPath:
+        path: /deployment/thanosgpm/thanos/bucket
+        type: Directory
+    - name: thanos_bucket_config
+      hostPath:
+        path: /deployment/thanosgpm/thanos/bucket_config.yml
+        type: File
+status: {}

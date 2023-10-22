@@ -1,0 +1,9 @@
+datasources:
+  - access: "proxy"
+    editable: true
+    is_default: true
+    name: "Thanos Prometheus"
+    org_id: 1
+    type: "prometheus"
+    url: "http://192.168.122.204:19191"
+    version: 1

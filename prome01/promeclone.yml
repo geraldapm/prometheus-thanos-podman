@@ -1,0 +1,112 @@
+# Save the output of this file and use kubectl create -f
+# to import it into Kubernetes.
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: promeclone
+  name: promeclone
+spec:
+  containers:
+    - name: prometheus
+      image: docker.io/prom/prometheus:latest
+      ports:
+        - containerPort: 9090
+          hostPort: 9190
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      volumeMounts:
+        - mountPath: /prometheus/prometheus.yml
+          name: prometheus_config
+          readOnly: true
+        - mountPath: /prometheus/data
+          name: prometheus_data
+        - mountPath: /prometheus/target
+          name: prometheus_targets
+      args:
+        - "--config.file=/prometheus/prometheus.yml"
+        - "--web.enable-remote-write-receiver"
+        - "--web.enable-lifecycle"
+        - "--storage.tsdb.min-block-duration=2h"
+        - "--storage.tsdb.max-block-duration=2h"
+    - name: thanos-sidecar
+      image: docker.io/thanosio/thanos:v0.32.2
+      ports:
+        - containerPort: 19190
+          hostPort: 19290
+        - containerPort: 10900
+          hostPort: 10910
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      volumeMounts:
+        - mountPath: /thanos/bucket_config.yml
+          name: thanos_bucket_config
+          readOnly: true
+        - mountPath: /prometheus/data
+          name: prometheus_data
+      args:
+        - "sidecar"
+        - "--prometheus.url=http://promeclone-prometheus:9090"
+        - "--tsdb.path=/prometheus/data"
+        - "--objstore.config-file=/thanos/bucket_config.yml"
+        - "--shipper.upload-compacted"
+        - "--grpc-address=0.0.0.0:10900"
+        - "--http-address=0.0.0.0:19190"
+    - name: alertmanager
+      image: docker.io/prom/alertmanager:latest
+      ports:
+        - containerPort: 9093
+          hostPort: 9193
+      resources: {}
+      securityContext:
+        capabilities:
+          drop:
+            - CAP_MKNOD
+            - CAP_NET_RAW
+            - CAP_AUDIT_WRITE
+      volumeMounts:
+        - mountPath: /prometheus/alertmanager/alertmanager.yml
+          name: alertmanager_config
+          readOnly: true
+        - mountPath: /prometheus/alertmanager/data
+          name: alertmanager_data
+      args:
+        - "--config.file=/prometheus/alertmanager/alertmanager.yml"
+        - "--log.level=debug"
+  restartPolicy: OnFailure
+  volumes:
+    - name: prometheus_targets
+      hostPath:
+        path: /deployment/promeclone/prometheus/target
+        type: Directory
+    - name: prometheus_data
+      hostPath:
+        path: /deployment/promeclone/prometheus/data
+        type: Directory
+    - name: prometheus_config
+      hostPath:
+        path: /deployment/promeclone/prometheus/prometheus.yml
+        type: File
+    - name: alertmanager_config
+      hostPath:
+        path: /deployment/promeclone/prometheus/alertmanager/alertmanager.yml
+        type: File
+    - name: alertmanager_data
+      hostPath:
+        path: /deployment/promeclone/prometheus/alertmanager/data
+        type: Directory
+    - name: thanos_bucket_config
+      hostPath:
+        path: /deployment/promeclone/thanos/bucket_config.yml
+        type: File
+status: {}

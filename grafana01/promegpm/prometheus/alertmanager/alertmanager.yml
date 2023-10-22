@@ -1,0 +1,91 @@
+global:
+  resolve_timeout: 5m
+  smtp_require_tls: false
+route:
+  receiver: unixauto
+  routes:
+    - receiver: rundeck-cpu-usage
+      match:
+        app: cpu_usage
+      continue: true
+      group_by: ["instance", "alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1000h
+
+    - receiver: kafka-tcp
+      match:
+        app: kafka-webhook
+      continue: true
+      group_by: ["instance", "alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1000h
+
+    - receiver: kubernetes
+      match:
+        app: kubernetes
+      continue: true
+      group_by: ["..."]
+      group_wait: 1s
+      group_interval: 1s
+
+    - receiver: confluent
+      match_re:
+        app: confluent
+        service: server-mon
+      continue: true
+      group_by: ["..."]
+      group_wait: 30s
+      group_interval: 2m
+      repeat_interval: 15m
+
+    - receiver: unixauto
+      match_re:
+        severity: critical|warning
+        service: server-mon
+      continue: true
+      group_by: ["instance", "alertname"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 1000h
+
+receivers:
+  - name: "unixauto"
+    email_configs:
+      - to: unixauto@dti.co.id
+        from: unixauto@dti.co.id
+        send_resolved: true
+        smarthost: 10.27.2.127:25
+        auth_identity: unixauto@dti.co.id
+        auth_password: Bcabca01
+        auth_username: " "
+        require_tls: false
+
+  - name: rundeck-cpu-usage
+    webhook_configs:
+      - url: "https://dev-rundeck.dti.co.id:4440/api/40/webhook/8Vl3BjXz57IZFpzMPHRLfjc0pZtHPLei#Show_CPU_Usage"
+  - name: kubernetes
+    webhook_configs:
+      - url: "https://notifmondev.dti.co.id/generic-webhook-trigger/invoke?token=devpaaskubernetesplatform"
+
+  - name: kafka-tcp
+    webhook_configs:
+      - url: "https://dev-rundeck.dti.co.id:4440/api/41/webhook/M9xbyusDlKvGEwAn852hjfA3ckuT2vZ3#MW_-_Kafka_TCP_Usage"
+  - name: confluent
+    webhook_configs:
+      - url: "https://dev-rundeck.dti.co.id:4440/api/41/webhook/hAXzWmvfe5pdfBxCaWPuLcBfDCZnG1He#Confluent_LAG"
+        send_resolved: false
+
+inhibit_rules:
+  - source_matchers:
+      - alertname="^(?!CG General.*Lag$).*Lag$"
+    target_matchers:
+      - alertname="CG General Lag"
+    equal: ["app", "cluster", "group"]
+
+  - source_matchers:
+      - alertname="^(?!CG General.*Critical$).*Critical$"
+    target_matchers:
+      - alertname="CG General Lag Critical"
+    equal: ["app", "cluster", "group"]

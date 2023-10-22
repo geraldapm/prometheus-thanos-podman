@@ -1,0 +1,7 @@
+type: s3
+config:
+  bucket: thanosgpm
+  endpoint: "192.168.122.204:9009"
+  insecure: true
+  access_key: ROOTNAME
+  secret_key: CHANGEME123

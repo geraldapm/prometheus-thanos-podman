@@ -1,0 +1,24 @@
+- targets: ["192.168.122.10:9100"]
+  labels:
+    job: node_exporter
+    metrics_path: /metrics
+
+- targets: ["192.168.122.201:9100"]
+  labels:
+    job: node_exporter
+    metrics_path: /metrics
+
+- targets: ["192.168.122.202:9100"]
+  labels:
+    job: node_exporter
+    metrics_path: /metrics
+
+- targets: ["192.168.122.203:9100"]
+  labels:
+    job: node_exporter
+    metrics_path: /metrics
+
+- targets: ["192.168.122.204:9100"]
+  labels:
+    job: node_exporter
+    metrics_path: /metrics
